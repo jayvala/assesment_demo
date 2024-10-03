@@ -100,4 +100,4 @@ Documentation for your Drupal 7-based conference management system application:
     Ensured that only authorized users can access REST API endpoints.
 
 GitHub Repository
-Conference Management System (Drupal 7) (replace with your GitHub link).
+Conference Management System (Drupal 7) (https://github.com/jayvala/assesment_demo/).
