@@ -100,4 +100,5 @@ Documentation for your Drupal 7-based conference management system application:
     Ensured that only authorized users can access REST API endpoints.
 
 GitHub Repository
+This folder also contains the DB named with assesment_demo.sql
 Conference Management System (Drupal 7) (https://github.com/jayvala/assesment_demo/).
