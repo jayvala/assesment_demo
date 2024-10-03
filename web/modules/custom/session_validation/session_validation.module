@@ -1,0 +1,85 @@
+<?php
+
+/**
+ * Implements hook_form_alter().
+ * Adds validation to ensure that End Time is after Start Time.
+ */
+function session_validation_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'sessions_node_form') {
+    // Add a custom validation handler.
+    $form['#validate'][] = 'sessions_validation_check_times';
+  }
+  if ($form_id == 'attendees_node_form') {
+    $form['#validate'][] = 'attendees_conflict_check_validate_conflicts';
+  }
+}
+
+/**
+ * Custom validation handler to check if the End Time is after the Start Time.
+ */
+function sessions_validation_check_times($form, &$form_state) {
+  if (isset($form_state['values']['field_start_time']['und'][0]['value']) && isset($form_state['values']['field_end_time']['und'][0]['value'])) {
+    // Retrieve the values of Start Time and End Time.
+    $start_time = strtotime($form_state['values']['field_start_time']['und'][0]['value']);
+    $end_time = strtotime($form_state['values']['field_end_time']['und'][0]['value']);
+    
+    // Check if End Time is earlier than Start Time.
+    if ($end_time <= $start_time) {
+      form_set_error('field_end_time', t('The End Time must be later than the Start Time.'));
+    }
+  } else {
+  // Handle missing or invalid field values.
+  if (!isset($form_state['values']['field_start_time']['und'][0]['value'])) {
+    form_set_error('field_start_time', t('The Start Time field is required.'));
+  }
+  if (!isset($form_state['values']['field_end_time']['und'][0]['value'])) {
+    form_set_error('field_end_time', t('The End Time field is required.'));
+  }
+  }
+}
+
+
+/**
+ * Custom validation function to detect session conflicts.
+ */
+function attendees_conflict_check_validate_conflicts($form, &$form_state) {
+  // Get the user entity reference field value.
+  $uid = isset($form_state['values']['field_user_reference']['und'][0]['target_id']) ? $form_state['values']['field_user_reference']['und'][0]['target_id'] : NULL;
+  // Get the session entity reference field value.
+  $session_id = isset($form_state['values']['field_sessions']['und'][0]['target_id']) ? $form_state['values']['field_sessions']['und'][0]['target_id'] : NULL;
+  
+  if ($uid && $session_id) {
+    $session = node_load($session_id);
+    
+    if ($session && isset($session->field_start_time['und'][0]['value']) && isset($session->field_end_time['und'][0]['value'])) {
+      $session_start = strtotime($session->field_start_time['und'][0]['value']);
+      $session_end = strtotime($session->field_end_time['und'][0]['value']);
+      
+      $query = new EntityFieldQuery();
+      $result = $query
+        ->entityCondition('entity_type', 'node')
+        ->entityCondition('bundle', 'attendees')
+        ->fieldCondition('field_user_reference', 'target_id', $uid)
+        ->fieldCondition('field_sessions', 'target_id', $session_id, '!=')
+        ->execute();
+      
+      if (!empty($result['node'])) {
+        foreach ($result['node'] as $attendee_nid => $attendee_info) {
+          $attendee_node = node_load($attendee_nid);
+          $attendee_session_id = $attendee_node->field_sessions['und'][0]['target_id'];
+          $attendee_session = node_load($attendee_session_id);
+          
+          if ($attendee_session && isset($attendee_session->field_start_time['und'][0]['value']) && isset($attendee_session->field_end_time['und'][0]['value'])) {
+            $attendee_start = strtotime($attendee_session->field_start_time['und'][0]['value']);
+            $attendee_end = strtotime($attendee_session->field_end_time['und'][0]['value']);
+            
+            if (($session_start < $attendee_end && $session_end > $attendee_start)) {
+              form_set_error('field_sessions', t('The user is already registered for a session that overlaps with the selected session.'));
+              return;
+            }
+          }
+        }
+      }
+    }
+  }
+}

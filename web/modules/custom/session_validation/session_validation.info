@@ -1,0 +1,5 @@
+name = Session Validation
+description = Prevents users from submitting sessions where the end time is before the start time.
+core = 7.x
+package = Custom
+

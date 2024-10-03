@@ -1,0 +1,6 @@
+name = Conference API
+description = Provides RESTful API endpoints for session and attendee information.
+core = 7.x
+package = Custom
+dependencies[] = services
+dependencies[] = entity

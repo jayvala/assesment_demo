@@ -1,0 +1,143 @@
+<?php
+
+
+/**
+ * Implements hook_services_resources().
+ * Register custom API resources.
+ */
+function conference_api_services_resources() {
+  return array(
+    'sessions' => array(
+      'index' => array(
+        'help' => 'Get a list of sessions with details.',
+        'file' => array('type' => 'inc', 'module' => 'conference_api', 'name' => 'resources/conference_api.resource'),
+        'callback' => '_conference_api_get_sessions',
+        'access callback' => '_conference_api_access',
+        'access arguments' => array('access content'),
+        'args' => array(),
+      ),
+    ),
+    
+    'attendees' => array(
+      'index' => array(
+        'help' => 'Get a list of attendees for a session.',
+        'file' => array('type' => 'inc', 'module' => 'conference_api', 'name' => 'resources/conference_api.resource'),
+        'callback' => '_conference_api_get_attendees',
+        'access callback' => '_conference_api_access',
+        'access arguments' => array('access content'),
+        'args' => array(),
+        // 'args' => array(
+        //   array( // The first argument is the session ID, passed through the URL.
+        //     'name' => 'session_id',
+        //     'type' => 'int',
+        //     'description' => 'The ID of the session to fetch attendees for.',
+        //     'optional' => FALSE,
+        //   ),
+        // ),
+      ),
+    ),
+  );
+}
+
+// function conference_api_page_alter(&$page) {
+//   $query = new EntityFieldQuery();
+//   $query->entityCondition('entity_type', 'node')
+//     ->entityCondition('bundle', 'sessions') // Replace 'session' with your content type machine name.
+//     ->propertyCondition('status', 1); // Only published nodes.
+
+//   $result = $query->execute();
+//   $sessions = array();
+
+//   if (!empty($result['node'])) {
+//     foreach ($result['node'] as $nid => $info) {
+//       $node = node_load($nid);
+//       print_r(!empty($node->field_start_time));
+//       // $sessions[] = array(
+//       //   'title' => $node->title,
+//       //   'start_time' => !empty($node->field_start_time) ? date("d-m-Y H:i", strtotime($node->field_start_time['und'][0]['value'])) : null,
+//       //   'end_time' => !empty($node->field_end_time) ? date("d-m-Y H:i", strtotime($node->field_end_time['und'][0]['value'])) : null,
+//       //   'presenter' => $node->field_speaker['und'][0]['value'],
+//       // );
+//     }
+//   }
+// }
+/**
+ * Retrieves a list of session nodes.
+ */
+function _conference_api_get_sessions($args = array()) {
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'node')
+    ->entityCondition('bundle', 'sessions') // Replace 'session' with your content type machine name.
+    ->propertyCondition('status', 1); // Only published nodes.
+
+  $result = $query->execute();
+  $sessions = array();
+
+  if (!empty($result['node'])) {
+    foreach ($result['node'] as $nid => $info) {
+      $node = node_load($nid);
+      
+      $sessions[] = array(
+        'title' => $node->title,
+        'topic' => !empty($node->field_topic) ? $node->field_topic['und'][0]['value'] : null,
+        'start_time' => !empty($node->field_start_time) ? date("d-m-Y H:i", strtotime($node->field_start_time['und'][0]['value'])) : null,
+        'end_time' => !empty($node->field_end_time) ? date("d-m-Y H:i", strtotime($node->field_end_time['und'][0]['value'])) : null,
+        'presenter' => !empty($node->field_speaker) ? $node->field_speaker['und'][0]['value'] : null,
+        'track' => !empty($node->field_track) ? node_load($node->field_track['und'][0]['target_id'])->title : null,
+        'venue' => !empty($node->field_venue) ? $node->field_venue['und'][0]['value'] : null,
+      );
+    }
+  }
+  
+  return $sessions;
+}
+
+/**
+ * Retrieves a list of attendees for a given session.
+ */
+function _conference_api_get_attendees($args = array()) {
+  // Get the session ID from the arguments.
+  // $session_id = isset($args[0]) ? intval($args[0]) : 0;
+
+  // if ($session_id) {
+    $query = new EntityFieldQuery();
+    $query->entityCondition('entity_type', 'node')
+      ->entityCondition('bundle', 'attendees') // Replace with the content type for attendees.
+      ->propertyCondition('status', 1);
+
+    $result = $query->execute();
+    $attendees = array();
+
+    if (!empty($result['node'])) {
+      foreach ($result['node'] as $nid => $info) {
+        $node = node_load($nid);
+        $user_id = !empty($node->field_user_reference) ? $node->field_user_reference['und'][0]['target_id'] : null;
+        if(!empty($user_id)) {
+          $user = user_load($user_id);
+          $attendees[] = array(
+            'username' => $user->name,
+            'email' => $user->mail,
+            'sessions' => !empty($node->field_sessions) ? node_load($node->field_sessions['und'][0]['target_id'])->title : null,
+            'sessions_start_time' => !empty($node->field_sessions) ? date("d-m-Y H:i", strtotime((node_load($node->field_sessions['und'][0]['target_id']))->field_start_time['und'][0]['value'])) : null,
+            'sessions_end_time' => !empty($node->field_sessions) ? date("d-m-Y H:i", strtotime((node_load($node->field_sessions['und'][0]['target_id']))->field_end_time['und'][0]['value'])) : null,
+          );
+        }
+      }
+    }
+
+    return $attendees;
+  // }
+  // else {
+  //   return array('error' => 'Session not found.');
+  // }
+}
+
+/**
+ * API access callback.
+ */
+function _conference_api_access() {
+  // Basic access control - allow only authenticated users for now.
+  return TRUE;
+}
+
+
